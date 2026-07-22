@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Bank Deposit → QBO Import Sheet | GATP</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231F3864'/%3E%3Ctext x='16' y='22' font-family='Arial' font-size='16' font-weight='bold' fill='white' text-anchor='middle'%3E%24%3C/text%3E%3C/svg%3E" />
-  <meta name="description" content="Turn a bank deposits export into a QuickBooks Online import workbook with built-in reconciliation. Runs entirely in your browser." />
+  <title>Deposit Reconciliation (Batch · Transactions · Bank) | GATP</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231F3864'/%3E%3Ctext x='16' y='22' font-family='Arial' font-size='15' font-weight='bold' fill='white' text-anchor='middle'%3E%E2%9F%B3%3C/text%3E%3C/svg%3E" />
+  <meta name="description" content="Reconcile a settlement batch file, its transaction splits, and the bank deposit register — a three-way tie-out with a downloadable Excel workbook. Runs entirely in your browser." />
   <link rel="stylesheet" href="assets/styles.css" />
 </head>
 <body>
@@ -14,8 +14,8 @@
       <div class="brand">
         <div class="logo">GATP</div>
         <div>
-          <h1>Bank Deposit → QBO Import Sheet</h1>
-          <p>Upload a bank deposits export + your Customers list → get a QuickBooks-ready import workbook with reconciliation.</p>
+          <h1>Deposit Reconciliation</h1>
+          <p>Batch file → Transaction splits → Bank deposits — a three-way tie-out with a downloadable workbook.</p>
         </div>
       </div>
       <div class="privacy">🔒 Files are processed entirely in your browser. Nothing is uploaded to any server.</div>
@@ -25,55 +25,47 @@
   <main class="wrap">
     <!-- STEP 1: files -->
     <section class="card">
-      <h2><span class="step-n">1</span> Upload your two files</h2>
-      <p class="hint">Bank export must have columns <b>Posted Date</b>, <b>Full description</b>, <b>Amount</b>. Customers list must have a <b>Name</b> column (your QuickBooks customer master).</p>
-      <div class="drops">
-        <label class="drop" id="dropBank">
-          <div class="ico">🏦</div>
-          <div class="t">Bank transactions</div>
-          <div class="s">.csv, .xls or .xlsx</div>
-          <div class="file" id="bankFileName"></div>
-          <input type="file" id="bankInput" accept=".csv,.xls,.xlsx,text/csv" />
+      <h2><span class="step-n">1</span> Upload the three files</h2>
+      <p class="hint">The <b>batch file</b> lists each settlement batch and its total. The <b>transaction export</b> holds the individual card transactions (the splits) that roll up into each batch by <code>Batch #</code>. The <b>bank deposit register</b> is what actually landed in the bank (matched by MID + amount).</p>
+      <div class="drops drops-3">
+        <label class="drop" id="dropBatch">
+          <div class="ico">📦</div>
+          <div class="t">Batch file</div>
+          <div class="s">Batch #, MID, Total Amount…</div>
+          <div class="file" id="batchFileName"></div>
+          <input type="file" id="batchInput" accept=".csv,.xls,.xlsx,text/csv" />
         </label>
-        <label class="drop" id="dropCust">
-          <div class="ico">👥</div>
-          <div class="t">Customers list</div>
-          <div class="s">.xls or .xlsx (QuickBooks export)</div>
-          <div class="file" id="custFileName"></div>
-          <input type="file" id="custInput" accept=".xls,.xlsx" />
+        <label class="drop" id="dropTxn">
+          <div class="ico">🧾</div>
+          <div class="t">Transaction export</div>
+          <div class="s">Amount, MID, Batch #…</div>
+          <div class="file" id="txnFileName"></div>
+          <input type="file" id="txnInput" accept=".csv,.xls,.xlsx,text/csv" />
+        </label>
+        <label class="drop" id="dropDep">
+          <div class="ico">🏦</div>
+          <div class="t">Bank deposit register</div>
+          <div class="s">Date, Description (MID), Received…</div>
+          <div class="file" id="depFileName"></div>
+          <input type="file" id="depInput" accept=".csv,.xls,.xlsx,text/csv" />
         </label>
       </div>
     </section>
 
     <!-- STEP 2: parameters -->
     <section class="card">
-      <h2><span class="step-n">2</span> Set the import parameters</h2>
-      <p class="hint">These are the same for every row of the import sheet.</p>
+      <h2><span class="step-n">2</span> Confirm the output</h2>
+      <p class="hint">Column names are detected automatically. Set the client name used in the download file.</p>
       <div class="grid-params">
         <div class="field">
-          <label for="startSNo">Starting SNo.</label>
-          <input type="number" id="startSNo" value="1" min="0" step="1" />
-          <div class="sub">First serial number; increments by 1 per row.</div>
-        </div>
-        <div class="field">
-          <label for="accounts">Accounts</label>
-          <input type="text" id="accounts" value="Undeposited Funds" />
-          <div class="sub">e.g. Undeposited Funds</div>
-        </div>
-        <div class="field">
-          <label for="klass">Class</label>
-          <input type="text" id="klass" placeholder="e.g. Corporate" />
-          <div class="sub">Leave blank if you don't use classes.</div>
-        </div>
-        <div class="field">
           <label for="client">Client / file name prefix</label>
-          <input type="text" id="client" value="Client" />
+          <input type="text" id="client" value="Healthnomic" />
           <div class="sub">Used in the output file name.</div>
         </div>
       </div>
       <div class="actions" style="margin-top:18px;">
-        <button class="btn btn-primary" id="processBtn" disabled>⚙️ Prepare import sheet</button>
-        <span class="muted" id="readyHint" style="font-size:13px;">Upload both files to enable.</span>
+        <button class="btn btn-primary" id="processBtn" disabled>⚙️ Reconcile</button>
+        <span class="muted" id="readyHint" style="font-size:13px;">Upload all three files to enable.</span>
       </div>
       <div id="errBox" class="err hidden"></div>
     </section>
@@ -81,31 +73,30 @@
     <!-- STEP 3: results -->
     <section class="card hidden" id="resultsCard">
       <h2><span class="step-n">3</span> Review &amp; download</h2>
-      <p class="hint">Check the reconciliation, assign any unmatched customers, then download your workbook.</p>
+      <p class="hint">Check the three-way tie-out, then download the workbook.</p>
 
       <div class="tiles" id="tiles"></div>
 
       <div class="assump hidden" id="assumpBox"></div>
 
-      <h3 class="section-title">Reconciliation</h3>
-      <div class="tablewrap"><table class="data" id="reconTable"></table></div>
+      <h3 class="section-title">Reconciliation summary</h3>
+      <div class="tablewrap"><table class="data" id="summaryTable"></table></div>
 
-      <h3 class="section-title">QBO Import — <span id="procCount"></span> rows
-        <span class="muted" style="font-weight:400;">(assign any ⚠ rows below)</span></h3>
-      <div class="tablewrap"><table class="data" id="procTable"></table></div>
+      <h3 class="section-title">Batch reconciliation — <span id="batchCount"></span> batches</h3>
+      <div class="tablewrap"><table class="data" id="batchTable"></table></div>
 
-      <h3 class="section-title">Not Processed — <span id="npCount"></span> rows</h3>
-      <div class="tablewrap"><table class="data" id="npTable"></table></div>
+      <h3 class="section-title">Exceptions — <span id="excCount"></span></h3>
+      <div class="tablewrap"><table class="data" id="excTable"></table></div>
 
       <div class="actions" style="margin-top:22px;">
-        <button class="btn btn-ok" id="downloadBtn">⬇️ Download QBO Import workbook (.xlsx)</button>
+        <button class="btn btn-ok" id="downloadBtn">⬇️ Download reconciliation workbook (.xlsx)</button>
         <span class="badge" id="dlBadge"></span>
       </div>
     </section>
 
     <div class="footer">
-      GATP Solutions · Bank Deposit → QBO Import · Runs offline in your browser ·
-      Output: <code>&lt;Client&gt;_QBO_Deposit_Import_&lt;range&gt;.xlsx</code>
+      GATP Solutions · Deposit Reconciliation · Runs offline in your browser ·
+      Output: <code>&lt;Client&gt;_Deposit_Reconciliation_&lt;range&gt;.xlsx</code>
     </div>
   </main>
 
