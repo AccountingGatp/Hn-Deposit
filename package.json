@@ -1,0 +1,13 @@
+{
+  "name": "hn-qbo-tools",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GATP QuickBooks Import Tools (Healthnomics) — static site",
+  "scripts": {
+    "build": "node build.js"
+  },
+  "dependencies": {
+    "exceljs": "4.4.0",
+    "xlsx": "0.18.5"
+  }
+}
