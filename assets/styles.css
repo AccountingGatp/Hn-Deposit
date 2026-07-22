@@ -139,3 +139,26 @@ table.data select.unset { border-color: var(--warn); background: #fff3f3; }
 .assump ul { margin:6px 0 0; padding-left: 20px; }
 .footer { text-align:center; color: var(--muted); font-size:12.5px; margin-top: 40px; }
 .footer code { background:#e9edf6; padding:1px 6px; border-radius:5px; }
+
+/* Back-to-hub link + 3-up dropzones + 340B tag (Monthly Services tool) */
+.backlink { display:inline-block; color:#c9d5ee; text-decoration:none; font-size:13px; margin-bottom:14px; }
+.backlink:hover { color:#fff; text-decoration:underline; }
+.drops.three { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 720px){ .drops.three { grid-template-columns: 1fr; } }
+.tag340 { font-size:12px; font-weight:700; background: rgba(255,255,255,.16); color:#eaf0fb;
+  padding:2px 9px; border-radius:999px; vertical-align: middle; margin-left:6px; letter-spacing:.4px; }
+
+/* Hub landing page */
+.hub { display:grid; grid-template-columns: repeat(2, 1fr); gap: 18px; margin-top: 22px; }
+@media (max-width: 720px){ .hub { grid-template-columns: 1fr; } }
+.tool {
+  display:flex; flex-direction:column; background: var(--card); border:1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow); padding: 22px; text-decoration:none; color: var(--ink);
+  transition: .15s; border-top: 3px solid var(--navy);
+}
+.tool:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(16,32,64,.12); border-color: var(--navy); }
+.tool .tico { font-size: 30px; }
+.tool h3 { color: var(--navy); font-size: 17px; margin: 12px 0 6px; }
+.tool p { color: var(--muted); font-size: 13.5px; margin: 0 0 14px; flex: 1; }
+.tool .go { color: var(--navy); font-weight: 700; font-size: 13.5px; }
+.hub-lead { color: var(--muted); font-size: 14px; margin: 6px 0 0; }

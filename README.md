@@ -1,85 +1,119 @@
-# Bank Deposit → QBO Import Sheet
+# GATP QuickBooks Import Tools · Healthnomics
 
-A self-service web page that turns a **bank deposits export** into a
-**QuickBooks Online–ready import workbook** with a built-in reconciliation —
-following the GATP SOP *"Bank Deposit to QBO Import Sheet (with Reconciliation)."*
+Self-service web pages that turn source exports into **QuickBooks Online–ready
+import workbooks**. Open the page, drop in the files, download a formatted,
+validated `.xlsx`. **Everything runs in the browser** — no server, and no
+financial data ever leaves the user's machine.
 
-Anyone on the team can open the page, drop in two files, set three values, and
-download a formatted `.xlsx`. **Everything runs in the browser** — no server, and
-no financial data ever leaves the user's machine.
+`index.html` is a hub linking the tools:
+
+| Tool | Page | Input → Output |
+|---|---|---|
+| **Monthly Services → QBO Import (340B Split)** | `monthly-services.html` | Monthly Services + JQ Code List + Patient List → 5-sheet Sales/Credit-Note (340B split) + Journal Ledger |
+| **Bank Deposit → QBO Import Sheet** | `bank-deposit.html` | Bank deposits export + Customers list → QBO import sheet with reconciliation |
 
 ---
 
-## How to use
+## Monthly Services → QBO Import (340B Split)
 
-1. Open `index.html` (locally or from wherever you host it — see **Deploy** below).
-2. **Step 1 — Upload two files**
-   - **Bank transactions** (`.csv`, `.xls`, or `.xlsx`) with columns
-     `Posted Date`, `Full description`, `Amount`.
-   - **Customers list** (`.xls`/`.xlsx` exported from QuickBooks) — the `Name`
-     column is the master customer list.
-3. **Step 2 — Set parameters**
-   - **Starting SNo.** — first serial number (increments by 1 per row).
-   - **Accounts** — e.g. `Undeposited Funds` (same for every row).
-   - **Class** — e.g. `Corporate` (leave blank if unused).
-   - **Client** — used in the output file name.
-4. **Step 3 — Review & download**
-   - See the reconciliation (Processed + Left = Bank total → **OK/MISMATCH**).
-   - Assign a customer to any row flagged **⚠ SELECT CUSTOMER**.
-   - Download `‹Client›_QBO_Deposit_Import_‹range›.xlsx`.
+Turns a **Healthnomics / Allscripts Monthly Services** export into one workbook
+with **exactly five sheets**, ready for SaasAnt import — following the GATP
+reusable prompt *"Monthly Services → QuickBooks Import (340B Split)."*
 
-## What the tool does (SOP rules)
+### How to use
 
-- **Processes only** positive amounts whose memo contains a TRN in the pattern
-  `TRN*1*<number>*`. Everything else (debits/transfers out, deposits with no TRN)
-  goes to the **Not Processed** sheet with a plain-language reason — never dropped.
-- **Customer name** is chosen **only** from your Customers list. Built-in mappings
-  for this client:
-  | Bank memo contains | Customer |
-  |---|---|
-  | CAREFIRST GHMSI / OF MD / BLUECH / ADVANT / MEDGAP, or plain GHMSI | **BCBS** |
-  | CFMI / CFBC **FEP Non-Pos** | **FEDERAL EMPLOYEE** |
-  | CFMI **FEP Postal** | **Fep Postal** |
-  | **Wellpoint** MD5C | **Wellpoint** |
-  | **36 TREAS** | **36 TREAS** |
+1. Open `index.html` → **Monthly Services → QBO Import (340B Split)**.
+2. **Step 1 — Upload three files**
+   - **Monthly Services** (`.xlsx`) — sheet `Monthly Services`, one row per service line.
+   - **JQ Code List** (`.xlsx`) — column `HCPCS`, the 340B drug/procedure codes
+     (J-, G-, Q- **and** CPT `7xxxx` codes — the whole list, not just J-codes).
+   - **Patient List** (`.xlsx`) — column `Patient Name` in `LNAME,FNAME` (or
+     `LNAME,FNAME MI`) form. The EMR Source column and `(blank)` rows are ignored.
+3. **Step 2 — Build.** Optionally set the file-name prefix. Click **Build**.
+4. **Step 3 — Review & download.** Confirm every source row was placed once and
+   the journal balances, then download the `.xlsx`.
 
-  Unrecognised payers are matched by name where possible, otherwise flagged for a
-  manual pick (the tool never invents a name that isn't on your list).
-- **Description** and **Memo** = the TRN number, stored as **text** so leading
-  digits are preserved.
+### What the tool does (the rules)
 
-## Output workbook (3 sheets, GATP house style)
+**Line items — two per source row** (an *original* and an *Adjustment* line;
+header fields repeated on both so each row stands alone):
 
-- **QBO Import** — `SNo. | Date | Customer name | Accounts | Description | Amount |
-  Memo | Class`, with a `=SUM` total row.
-- **Not Processed** — `Date | Bank Description | Amount | Reason` (reason also as a
-  cell comment).
-- **Reconciliation** — all-formula cross-checks pulling from the other two sheets,
-  ending in an `OK / MISMATCH` check cell.
+| Output field | Source / rule |
+|---|---|
+| Invoice Number | Voucher Number (col B) + Service ID (col C), stored as **text** |
+| Customer | Original Ins Category Desc (col BC) |
+| Invoice Date | Post Date (col W), `mm/dd/yyyy` |
+| Memo / Message / Product-Service Description | = Invoice Number |
+| Product/Service | Procedure Code (col BL) + " - " + Procedure Descr (col BM); Adjustment line prefixed `Adjustment - ` |
+| Product/Service Amount | Original = Fee (col BP); Adjustment = **−Fee × 67.67%**, `ROUND_HALF_UP`, `0.00` |
+| Product/Service Taxable | False |
+| Location Name | Place of Service Descr (col Y) |
 
-Formatting: navy `#1F3864` header, white bold Arial, alternating `#D9E1F2` fills,
-thin borders, frozen header row, gridlines off, Arial 10 body, `#,##0.00` amounts.
+**Classify 340B** — an invoice is **340B only if both** are true (else Non-340B):
+- Procedure Code (col BL) appears in the JQ Code List, **and**
+- the patient (built from LName/FName/MI, cols G/H/I) matches the Patient List
+  (case-insensitive; tries `LNAME,FNAME` then `LNAME,FNAME MI`).
+
+**Split Sales vs Credit Note** — net the two amounts per invoice:
+- Net **≥ 0** → **Sales** sheet for its class (0 is *not* negative → stays in Sales).
+- Net **< 0** → **Credit Note** sheet for its class (negative-Fee rows land here).
+
+**Journal Ledger** — one 3-line, balanced entry **per credit-note invoice**:
+`Journal No | Date | Memo | Account | Debit | Credit | Description | Name | Class`
+- Line 1 (revenue) DEBIT = |original amount|
+- Line 2 (adjustment) CREDIT = |Adjustment amount|
+- Line 3 `Undeposited Funds-Allscript EOB` CREDIT = Line 1 − Line 2
+- Debit = sum of Credits (the entry always ties out). Account strings differ for
+  340B vs Non-340B and are used verbatim.
+
+Every source row lands in exactly one sheet; voided rows are kept.
+
+### Output workbook (5 sheets, GATP house style)
+
+`Sales - Non-340B` · `Sales - 340B` · `Credit Note - Non-340B` ·
+`Credit Note - 340B` · `Journal Ledger`.
+
+Formatting: Arial 10; navy `#1F3864` header, white bold, frozen top row; thin
+gridlines; per-invoice `#D9E1F2` banding; amounts `0.00`; dates `mm/dd/yyyy`;
+invoice numbers as **text**; per-sheet total rows and a journal `BALANCED` check.
+
+---
+
+## Bank Deposit → QBO Import Sheet
+
+Turns a **bank deposits export** into a QBO import workbook with a built-in
+reconciliation — following the GATP SOP *"Bank Deposit to QBO Import Sheet."*
+Upload the bank export + your Customers list, set the parameters, download a
+3-sheet workbook (`QBO Import` · `Not Processed` · `Reconciliation`). See the
+in-page hints for the full column and mapping rules.
+
+---
 
 ## Deploy
 
-It's a static site — host the folder anywhere:
+Static site — host the folder anywhere:
 
 - **GitHub Pages:** repo → Settings → Pages → deploy from this branch, root.
 - **Any static host / intranet:** copy the folder and serve it.
-- **Local:** just open `index.html`, or run `python3 -m http.server` in the folder.
+- **Local:** open `index.html`, or run `python3 -m http.server` in the folder.
 
 No build step. Libraries ([SheetJS](https://sheetjs.com) for reading,
 [ExcelJS](https://github.com/exceljs/exceljs) for writing) are vendored in
-`vendor/` so the page works fully offline.
+`vendor/` so the pages work fully offline.
 
 ## Project layout
 
 ```
-index.html              # the page
-assets/styles.css       # GATP styling
-assets/core.js          # SOP logic (parsing, TRN, customer mapping) — DOM-free, unit-testable
-assets/xlsx-build.js    # builds the styled 3-sheet workbook (ExcelJS)
-assets/app.js           # UI controller (file reading, review table, download)
-vendor/xlsx.full.min.js # SheetJS (reads .csv/.xls/.xlsx)
-vendor/exceljs.min.js   # ExcelJS (writes styled .xlsx with formulas & comments)
+index.html                # hub linking the tools
+monthly-services.html     # Monthly Services → QBO (340B Split) tool
+bank-deposit.html         # Bank Deposit → QBO tool
+assets/styles.css         # shared GATP styling
+assets/ms-core.js         # Monthly Services logic (classify, split, journal) — DOM-free, testable
+assets/ms-build.js        # builds the 5-sheet workbook (ExcelJS)
+assets/ms-app.js          # Monthly Services UI controller
+assets/core.js            # Bank Deposit logic
+assets/xlsx-build.js      # Bank Deposit workbook builder
+assets/app.js             # Bank Deposit UI controller
+vendor/xlsx.full.min.js   # SheetJS (reads .csv/.xls/.xlsx)
+vendor/exceljs.min.js     # ExcelJS (writes styled .xlsx with formulas)
 ```

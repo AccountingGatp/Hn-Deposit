@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Monthly Services → QBO Import (340B Split) | GATP</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231F3864'/%3E%3Ctext x='16' y='22' font-family='Arial' font-size='15' font-weight='bold' fill='white' text-anchor='middle'%3E340B%3C/text%3E%3C/svg%3E" />
+  <meta name="description" content="Turn a Healthnomics Monthly Services export into a QuickBooks import workbook with a 340B / Non-340B split and a balanced journal ledger. Runs entirely in your browser." />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="backlink" href="index.html">← All GATP tools</a>
+      <div class="brand">
+        <div class="logo">GATP</div>
+        <div>
+          <h1>Monthly Services → QBO Import <span class="tag340">340B Split</span></h1>
+          <p>Healthnomics / Allscripts Monthly Services → a QuickBooks-ready workbook: Sales &amp; Credit Notes split 340B / Non-340B, plus a balanced Journal Ledger.</p>
+        </div>
+      </div>
+      <div class="privacy">🔒 Files are processed entirely in your browser. Nothing is uploaded to any server.</div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- STEP 1: files -->
+    <section class="card">
+      <h2><span class="step-n">1</span> Upload your three files</h2>
+      <p class="hint">The three period files: the <b>Monthly Services</b> export, the <b>JQ Code List</b> (340B HCPCS/CPT codes), and the <b>Patient List</b>.</p>
+      <div class="drops three">
+        <label class="drop" id="dropMS">
+          <div class="ico">📄</div>
+          <div class="t">Monthly Services</div>
+          <div class="s">.xlsx — sheet “Monthly Services”</div>
+          <div class="file" id="msFileName"></div>
+          <input type="file" id="msInput" accept=".xls,.xlsx" />
+        </label>
+        <label class="drop" id="dropJQ">
+          <div class="ico">💊</div>
+          <div class="t">JQ Code List</div>
+          <div class="s">.xlsx — column “HCPCS”</div>
+          <div class="file" id="jqFileName"></div>
+          <input type="file" id="jqInput" accept=".xls,.xlsx" />
+        </label>
+        <label class="drop" id="dropPT">
+          <div class="ico">👤</div>
+          <div class="t">Patient List</div>
+          <div class="s">.xlsx — column “Patient Name”</div>
+          <div class="file" id="ptFileName"></div>
+          <input type="file" id="ptInput" accept=".xls,.xlsx" />
+        </label>
+      </div>
+    </section>
+
+    <!-- STEP 2: run -->
+    <section class="card">
+      <h2><span class="step-n">2</span> Build the workbook</h2>
+      <p class="hint">Everything else is derived from the files — no parameters to set.</p>
+      <div class="grid-params">
+        <div class="field">
+          <label for="client">Client / file name prefix</label>
+          <input type="text" id="client" value="Healthnomics" />
+          <div class="sub">Used only for the download file name.</div>
+        </div>
+      </div>
+      <div class="actions" style="margin-top:18px;">
+        <button class="btn btn-primary" id="processBtn" disabled>⚙️ Build 5-sheet workbook</button>
+        <span class="muted" id="readyHint" style="font-size:13px;">Upload all three files to enable.</span>
+      </div>
+      <div id="errBox" class="err hidden"></div>
+    </section>
+
+    <!-- STEP 3: results -->
+    <section class="card hidden" id="resultsCard">
+      <h2><span class="step-n">3</span> Review &amp; download</h2>
+      <p class="hint">Confirm every source row landed once and the journal balances, then download.</p>
+
+      <div class="tiles" id="tiles"></div>
+
+      <h3 class="section-title">Per-sheet summary</h3>
+      <div class="tablewrap"><table class="data" id="sumTable"></table></div>
+      <div class="assump" id="reconLine" style="margin-top:14px;"></div>
+
+      <h3 class="section-title">Credit Notes — <span id="cnCount"></span> invoice(s)
+        <span class="muted" style="font-weight:400;">(negative-net invoices; drive the journal)</span></h3>
+      <div class="tablewrap"><table class="data" id="cnTable"></table></div>
+
+      <h3 class="section-title">Journal Ledger — <span id="jCount"></span> line(s)
+        <span class="muted" style="font-weight:400;">(3 balanced lines per credit note)</span></h3>
+      <div class="tablewrap"><table class="data" id="jTable"></table></div>
+
+      <div class="actions" style="margin-top:22px;">
+        <button class="btn btn-ok" id="downloadBtn">⬇️ Download 5-sheet workbook (.xlsx)</button>
+      </div>
+    </section>
+
+    <div class="footer">
+      GATP Solutions · Monthly Services → QBO Import (340B Split) · Runs offline in your browser ·
+      Sheets: <code>Sales / Credit Note × (340B, Non-340B)</code> + <code>Journal Ledger</code>
+    </div>
+  </main>
+
+  <!-- Vendored libraries (no CDN) -->
+  <script src="vendor/xlsx.full.min.js"></script>
+  <script src="vendor/exceljs.min.js"></script>
+  <!-- App logic -->
+  <script src="assets/ms-core.js"></script>
+  <script src="assets/ms-build.js"></script>
+  <script src="assets/ms-app.js"></script>
+</body>
+</html>
