@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Payroll Register → QBO Journal Entry | GATP</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231F3864'/%3E%3Ctext x='16' y='22' font-family='Arial' font-size='15' font-weight='bold' fill='white' text-anchor='middle'%3EJE%3C/text%3E%3C/svg%3E" />
+  <meta name="description" content="Turn a payroll register export into a QuickBooks Online–ready journal entry with a built-in balance check. Runs entirely in your browser." />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <div class="brand">
+        <div class="logo">GATP</div>
+        <div>
+          <h1>Payroll Register → QBO Journal Entry</h1>
+          <p>Upload a payroll register export → get a QuickBooks-ready journal entry that balances, with summary &amp; validation.</p>
+        </div>
+      </div>
+      <div class="privacy">🔒 Files are processed entirely in your browser. Nothing is uploaded to any server.</div>
+      <nav class="toolnav">
+        <a href="index.html">← Bank Deposit → QBO Import</a>
+        <span class="sep">·</span>
+        <a href="payroll.html" class="active">Payroll → Journal Entry</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- STEP 1: file -->
+    <section class="card">
+      <h2><span class="step-n">1</span> Upload the payroll register</h2>
+      <p class="hint">The register export from <b>Payroll_Eldersburg.accdb</b> (the <code>Output</code> / <code>SourceData3</code> sheet), or any file with the same columns. Positional layout (no headers) and blank spacer rows are handled automatically.</p>
+      <div class="drops one">
+        <label class="drop" id="dropReg">
+          <div class="ico">🧾</div>
+          <div class="t">Payroll register</div>
+          <div class="s">.xls, .xlsx or .csv</div>
+          <div class="file" id="regFileName"></div>
+          <input type="file" id="regInput" accept=".csv,.xls,.xlsx,text/csv" />
+        </label>
+      </div>
+    </section>
+
+    <!-- STEP 2: parameters -->
+    <section class="card">
+      <h2><span class="step-n">2</span> Set parameters</h2>
+      <p class="hint">Defaults match the Eldersburg chart of accounts and physician rules. Open <b>Advanced</b> only if you need to change account names or add a physician.</p>
+      <div class="grid-params">
+        <div class="field">
+          <label for="client">Client / file name prefix</label>
+          <input type="text" id="client" value="Eldersburg" />
+          <div class="sub">Used in the output file name.</div>
+        </div>
+        <div class="field">
+          <label for="physRules">Physician name rules</label>
+          <input type="text" id="physRules" value="OBrian*, Niculescu" />
+          <div class="sub">Comma-separated. Trailing <code>*</code> = "starts with"; otherwise "contains".</div>
+        </div>
+      </div>
+
+      <button class="linklike" id="advToggle" type="button">⚙ Advanced — account names</button>
+      <div class="adv hidden" id="advPanel">
+        <div class="grid-params">
+          <div class="field"><label>Dr — Wages (Employees)</label><input type="text" id="acctWagesEmp" value="Payroll Wages &amp; Salaries:Employee" /></div>
+          <div class="field"><label>Dr — Wages (Physicians)</label><input type="text" id="acctWagesPhys" value="Payroll Wages &amp; Salaries:Physicians" /></div>
+          <div class="field"><label>Dr — Employer payroll tax</label><input type="text" id="acctErTax" value="Payroll Taxes:Employee" /></div>
+          <div class="field"><label>Cr — Deductions parent account</label><input type="text" id="acctDedParent" value="Payroll wages and tax to pay" /></div>
+          <div class="field"><label>Cr — Net pay (wages to pay)</label><input type="text" id="acctNet" value="Payroll wages and tax to pay:Wages to pay" /></div>
+          <div class="field"><label>Cr — Taxes payable (EE + ER)</label><input type="text" id="acctTaxPay" value="Payroll wages and tax to pay:Payroll tax to pay" /></div>
+        </div>
+        <p class="hint" style="margin-left:0;">Each distinct deduction description gets its own credit line under the parent account (e.g. <code>…:401k deduction</code>).</p>
+      </div>
+
+      <div class="actions" style="margin-top:18px;">
+        <button class="btn btn-primary" id="processBtn" disabled>⚙️ Build journal entry</button>
+        <span class="muted" id="readyHint" style="font-size:13px;">Upload the register to enable.</span>
+      </div>
+      <div id="errBox" class="err hidden"></div>
+    </section>
+
+    <!-- STEP 3: results -->
+    <section class="card hidden" id="resultsCard">
+      <h2><span class="step-n">3</span> Review &amp; download</h2>
+      <p class="hint">Check the balance and totals, then download your workbook (JE Import · Summary · Journal Entry · Validation).</p>
+
+      <div class="tiles" id="tiles"></div>
+
+      <h3 class="section-title">Summary — Type × Department</h3>
+      <div class="tablewrap"><table class="data" id="summaryTable"></table></div>
+
+      <h3 class="section-title">Journal Entry</h3>
+      <div id="jeBlocks"></div>
+
+      <h3 class="section-title">Validation</h3>
+      <div class="tablewrap"><table class="data" id="validationTable"></table></div>
+
+      <div class="assump" id="exceptionsBox"></div>
+
+      <div class="actions" style="margin-top:22px;">
+        <button class="btn btn-ok" id="downloadBtn">⬇️ Download Payroll JE workbook (.xlsx)</button>
+      </div>
+    </section>
+
+    <div class="footer">
+      GATP Solutions · Payroll Register → QBO Journal Entry · Runs offline in your browser ·
+      Output: <code>&lt;Client&gt;_Payroll_JE_&lt;check date&gt;.xlsx</code>
+    </div>
+  </main>
+
+  <!-- Vendored libraries (no CDN) -->
+  <script src="vendor/xlsx.full.min.js"></script>
+  <script src="vendor/exceljs.min.js"></script>
+  <!-- App logic -->
+  <script src="assets/payroll-core.js"></script>
+  <script src="assets/payroll-xlsx.js"></script>
+  <script src="assets/payroll-app.js"></script>
+</body>
+</html>

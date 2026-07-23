@@ -139,3 +139,32 @@ table.data select.unset { border-color: var(--warn); background: #fff3f3; }
 .assump ul { margin:6px 0 0; padding-left: 20px; }
 .footer { text-align:center; color: var(--muted); font-size:12.5px; margin-top: 40px; }
 .footer code { background:#e9edf6; padding:1px 6px; border-radius:5px; }
+
+/* Tool nav (multi-page) */
+.toolnav { margin-top: 14px; font-size: 13px; }
+.toolnav a { color: #c9d5ee; text-decoration: none; padding: 4px 2px; }
+.toolnav a:hover { color: #fff; text-decoration: underline; }
+.toolnav a.active { color: #fff; font-weight: 700; }
+.toolnav .sep { color: rgba(255,255,255,.4); margin: 0 8px; }
+
+/* Single dropzone (centered) */
+.drops.one { grid-template-columns: 1fr; max-width: 520px; }
+
+/* Advanced panel + link-style toggle */
+.linklike {
+  appearance: none; background: none; border: none; color: var(--navy);
+  font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+  padding: 6px 0; margin-top: 4px;
+}
+.linklike:hover { text-decoration: underline; }
+.adv {
+  background: var(--band-soft); border: 1px solid var(--line); border-radius: 10px;
+  padding: 16px; margin-top: 8px;
+}
+
+/* Journal entry blocks */
+.je-memo { font-weight: 800; color: var(--navy); font-size: 13.5px; margin: 18px 0 2px; }
+.je-check { font-size: 13px; font-weight: 700; margin: 8px 0 4px; }
+.je-check.ok { color: var(--ok); }
+.je-check.bad { color: var(--warn); }
+.code, code { font-family: "SFMono-Regular", Consolas, monospace; }

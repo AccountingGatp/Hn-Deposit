@@ -1,3 +1,16 @@
+# GATP QBO Tools
+
+Two self-service web pages that turn accounting exports into
+**QuickBooks Online–ready workbooks**. Both run **entirely in the browser** —
+no server, and no financial data ever leaves the user's machine.
+
+| Page | Input | Output |
+|---|---|---|
+| [`index.html`](index.html) — **Bank Deposit → QBO Import** | Bank deposits export + Customers list | QBO import workbook with reconciliation |
+| [`payroll.html`](payroll.html) — **Payroll Register → QBO Journal Entry** | Payroll register export | Balanced QBO journal entry with summary & validation |
+
+---
+
 # Bank Deposit → QBO Import Sheet
 
 A self-service web page that turns a **bank deposits export** into a
@@ -59,6 +72,68 @@ no financial data ever leaves the user's machine.
 
 Formatting: navy `#1F3864` header, white bold Arial, alternating `#D9E1F2` fills,
 thin borders, frozen header row, gridlines off, Arial 10 body, `#,##0.00` amounts.
+
+---
+
+# Payroll Register → QBO Journal Entry
+
+A companion page ([`payroll.html`](payroll.html)) that turns a **payroll register
+export** into a **balanced QuickBooks Online journal entry** — following the GATP
+prompt *"Eldersburg Payroll Journal Entry."*
+
+## How to use
+
+1. Open `payroll.html`.
+2. **Step 1** — drop in the register export from `Payroll_Eldersburg.accdb`
+   (the `Output` / `SourceData3` sheet), or any file with the same columns.
+   Positional layout (no headers) and blank spacer rows are handled automatically.
+3. **Step 2** — set the client name and physician rules. **Advanced** lets you
+   override any account name.
+4. **Step 3** — review the summary, journal entry and validation, then download
+   the workbook.
+
+## What the tool does (prompt rules)
+
+- **Normalise** — maps the positional columns `F1..F23` (or matches by header if
+  present), strips quotes, treats amounts as numbers, and **drops any row whose
+  presence flag (`F2`) is blank** (headers / spacers / totals).
+- **Classify** each line into a bucket — first match wins: Employee Tax > 0 →
+  *Employee Tax*; Employer Tax > 0 → *Employer Tax*; `Type1 = E` → *Earning*;
+  `Type1 = D` → *Deduction*; `Type1 = T` → *Employee Tax*; anything else →
+  *Unclassified* (surfaced, never forced into the entry).
+- **Department** from the employee name — physician rules (default `OBrian*`,
+  `Niculescu`) → *Physicians*, everything else → *Employee*.
+- **Journal entry per check date** — debits first:
+  | | Account | Amount |
+  |---|---|---|
+  | Dr | Payroll Wages & Salaries:Employee / :Physicians | earnings by department |
+  | Dr | Payroll Taxes:Employee | total employer tax |
+  | Cr | Payroll wages and tax to pay:*‹deduction›* | one line per deduction type |
+  | Cr | Payroll wages and tax to pay:Wages to pay | total net pay |
+  | Cr | Payroll wages and tax to pay:Payroll tax to pay | employee + employer tax |
+- **Validate** — total debits = total credits, and the identity
+  *Earning + Employer Tax = Net + EE Tax + ER Tax + Deductions*; flags every
+  unclassified line and negative amount.
+
+## Output workbook
+
+- **JE Import** — `ACCOUNT | DEBITS | CREDITS | DESCRIPTION | NAME`, the proven
+  layout that imports straight into QBO.
+- **Summary** — Type × Department totals with a grand-total row.
+- **Journal Entry** — human-readable, debits first, with a `=SUM` total row.
+- **Validation** — the balance and identity checks with PASS/FAIL.
+- **Exceptions** — only added if there are unclassified lines or negatives.
+
+## Project layout (payroll tool)
+
+```
+payroll.html                 # the page
+assets/payroll-core.js       # prompt logic (normalise, classify, JE, validate) — DOM-free
+assets/payroll-xlsx.js       # builds the styled workbook (ExcelJS)
+assets/payroll-app.js        # UI controller (file reading, review, download)
+```
+
+---
 
 ## Deploy
 
