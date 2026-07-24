@@ -319,22 +319,27 @@
   // no money on it (backs of checks, blank pages, endorsement stubs).
   function extractCheck(page, meta) {
     page = page || {};
-    var amount = parseAmount(page.text);
-    if (!amount) return null;                                 // no amount => not a check face
-    if (!isCheckLike(page, amount)) return null;              // EOB / summary page, skip
+    var numeric = parseAmount(page.text);         // courtesy box (may be null)
+    var written = parseWrittenAmount(page.text);  // legal/word amount (may be null)
+    if (!numeric && !written) return null;         // no money => not a check face
+
+    // Decide the amount. Words are the legal amount on a real check: if figures
+    // and words disagree, trust the words and flag; if the figures were lost in
+    // OCR (a dropped decimal point), the words rescue the row on their own.
+    var value, amtSource, amtMismatch = false;
+    if (numeric && written) {
+      if (Math.abs(written.value - numeric.value) < 0.005) { value = numeric.value; amtSource = 'agree'; }
+      else { value = written.value; amtSource = 'written'; amtMismatch = true; }
+    } else if (numeric) {
+      value = numeric.value; amtSource = numeric.source;
+    } else {
+      value = written.value; amtSource = 'written';
+    }
+
+    if (!isCheckLike(page, { source: amtSource })) return null;  // EOB / summary page, skip
     var date = parseDate(page.text);
     var chk = parseCheckNumber(page);
     var checkNo = chk ? chk.value : '';
-
-    // Cross-check the numeric amount against the written amount. Words are the
-    // legal amount on a real check, so when they disagree we trust the words and
-    // mark the row for a look.
-    var written = parseWrittenAmount(page.text);
-    var value = amount.value, amtSource = amount.source, amtMismatch = false;
-    if (written) {
-      if (Math.abs(written.value - value) < 0.005) { amtSource = 'agree'; }
-      else { value = written.value; amtSource = 'written'; amtMismatch = true; }
-    }
 
     return {
       file: meta && meta.file || '',
@@ -350,7 +355,7 @@
       checkNoSource: chk ? chk.source : null,
       checkNoConfident: chk ? chk.confident : false,
       amount: value,
-      amountRaw: amount.raw,
+      amountRaw: numeric ? numeric.raw : (written ? String(written.value) : ''),
       amountSource: amtSource,
       amountMismatch: amtMismatch
     };

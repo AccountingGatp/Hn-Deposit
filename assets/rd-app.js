@@ -138,7 +138,7 @@ async function ensureWorker() {
   if (ocrWorker) return;
   ocrWorker = await Tesseract.createWorker('eng', 1, {
     workerPath: 'vendor/tesseract-worker.min.js',
-    corePath: 'vendor/tess-core/',
+    corePath: 'vendor/tess-core/tesseract-core-simd-lstm.wasm.js',
     langPath: 'vendor/tessdata/',
     gzip: true,
     logger: (m) => {
