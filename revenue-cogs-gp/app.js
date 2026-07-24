@@ -355,28 +355,133 @@
     return { top: s2, left: s2, right: s2, bottom: s2 };
   }
 
-  function download() {
-    var company = s($("client").value) || state.rev.company || "Company";
-    var period = s($("period").value) || state.rev.period || "";
-    var expenses = parseFloat($("totExp").value) || 0;
+  function meta() {
+    return {
+      company: s($("client").value) || state.rev.company || "Company",
+      period: s($("period").value) || state.rev.period || ""
+    };
+  }
+  function periodClean(period) { return s(period).replace(/,/g, "").replace(/\s+/g, " ").trim(); }
+  function fileNameFor(company) {
+    var safe = company.replace(/[^a-z0-9]+/gi, "_").replace(/^_|_$/g, "") || "Company";
+    return safe + "_Revenue_COGS_GP_Report.xlsx";
+  }
+
+  // Build the 3-sheet workbook (used by both Download and the Gmail draft)
+  function buildWorkbook() {
+    var m = meta(), expenses = parseFloat($("totExp").value) || 0;
     var wb = new ExcelJS.Workbook();
     wb.creator = "GATP Revenue-COGS-GP Report";
-
-    // Order: Revenue, COGS, then the P&L that references them
     var revTot = buildTxSheet(wb, "Revenue", state.rev);
     var cogsTot = buildTxSheet(wb, "COGS", state.cogs);
-    buildPLSheet(wb, revTot, cogsTot, expenses, company, period);
+    buildPLSheet(wb, revTot, cogsTot, expenses, m.company, m.period);
+    return wb;
+  }
 
-    wb.xlsx.writeBuffer().then(function (buf) {
+  function download() {
+    var m = meta();
+    buildWorkbook().xlsx.writeBuffer().then(function (buf) {
       var blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-      var safe = company.replace(/[^a-z0-9]+/gi, "_").replace(/^_|_$/g, "") || "Company";
       var a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = safe + "_Revenue_COGS_GP_Report.xlsx";
+      a.download = fileNameFor(m.company);
       document.body.appendChild(a); a.click();
       setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
       $("dlBadge").textContent = "✓ downloaded";
     }).catch(function (e) { showErr("Export failed: " + e.message); });
+  }
+
+  /* ---------- Gmail draft (Google Identity Services + Gmail API) ---------- */
+  function mailErr(m) { var b = $("mailErr"); b.textContent = "⚠ " + m; b.classList.remove("hidden"); }
+  function mailClear() { $("mailErr").classList.add("hidden"); }
+
+  function bytesToBase64(buf) {
+    var bytes = new Uint8Array(buf), bin = "", CH = 0x8000;
+    for (var i = 0; i < bytes.length; i += CH) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+    return btoa(bin);
+  }
+  function toBase64Url(str) {
+    var bytes = new TextEncoder().encode(str), bin = "", CH = 0x8000;
+    for (var i = 0; i < bytes.length; i += CH) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+    return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  function buildMime(o) {
+    var B = "=_gatp_" + Date.now();
+    var L = [];
+    L.push("To: " + o.to);
+    if (o.cc) L.push("Cc: " + o.cc);
+    L.push("Subject: " + o.subject);
+    L.push("MIME-Version: 1.0");
+    L.push('Content-Type: multipart/mixed; boundary="' + B + '"');
+    L.push("");
+    L.push("--" + B);
+    L.push('Content-Type: text/plain; charset="UTF-8"');
+    L.push("Content-Transfer-Encoding: 7bit");
+    L.push("");
+    L.push(o.body.replace(/\n/g, "\r\n"));
+    L.push("");
+    L.push("--" + B);
+    L.push('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet; name="' + o.fileName + '"');
+    L.push('Content-Disposition: attachment; filename="' + o.fileName + '"');
+    L.push("Content-Transfer-Encoding: base64");
+    L.push("");
+    L.push(o.b64.replace(/(.{76})/g, "$1\r\n"));
+    L.push("--" + B + "--");
+    return L.join("\r\n");
+  }
+
+  function createDraft() {
+    mailClear();
+    var clientId = s($("gClientId").value);
+    var to = s($("mailTo").value), cc = s($("mailCc").value);
+    if (!clientId) { mailErr("Enter your Google OAuth Client ID (see the setup note in the Gmail-draft section)."); return; }
+    if (!to) { mailErr("Enter a 'To' address."); return; }
+    if (typeof google === "undefined" || !google.accounts || !google.accounts.oauth2) {
+      mailErr("Google sign-in library hasn't loaded (needs internet). Check your connection and try again."); return;
+    }
+    $("mailStatus").textContent = "authorizing…";
+    var tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: "https://www.googleapis.com/auth/gmail.compose",
+      callback: function (resp) {
+        if (!resp || !resp.access_token) {
+          $("mailStatus").textContent = "";
+          mailErr("Authorization failed" + (resp && resp.error ? ": " + resp.error : ".")); return;
+        }
+        postDraft(resp.access_token, to, cc);
+      }
+    });
+    try { tokenClient.requestAccessToken({ prompt: "" }); }
+    catch (e) { $("mailStatus").textContent = ""; mailErr("Could not start Google authorization: " + e.message); }
+  }
+
+  function postDraft(token, to, cc) {
+    var m = meta(), per = periodClean(m.period) || "the month";
+    var subject = "Revenue Report - " + (periodClean(m.period) || m.company);
+    var body = "Hi,\n\nPlease find the attached revenue report for " + per + ".\n\n" +
+      "Let us know if you have any questions.\n\nThanks";
+    $("mailStatus").textContent = "building draft…";
+    buildWorkbook().xlsx.writeBuffer().then(function (buf) {
+      var raw = toBase64Url(buildMime({
+        to: to, cc: cc, subject: subject, body: body,
+        fileName: fileNameFor(m.company), b64: bytesToBase64(buf)
+      }));
+      return fetch("https://gmail.googleapis.com/gmail/v1/users/me/drafts", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({ message: { raw: raw } })
+      });
+    }).then(function (r) {
+      return r.json().then(function (j) { return { ok: r.ok, j: j }; });
+    }).then(function (res) {
+      if (res.ok) {
+        $("mailStatus").innerHTML = '✓ Draft created — <a href="https://mail.google.com/mail/u/0/#drafts" target="_blank" rel="noopener">open Gmail → Drafts</a>';
+      } else {
+        $("mailStatus").textContent = "";
+        var msg = res.j && res.j.error && res.j.error.message ? res.j.error.message : JSON.stringify(res.j);
+        mailErr("Gmail API error: " + msg);
+      }
+    }).catch(function (e) { $("mailStatus").textContent = ""; mailErr("Network error: " + e.message); });
   }
 
   /* ---------- wire up ---------- */
@@ -385,4 +490,8 @@
   $("processBtn").addEventListener("click", function () { clearErr(); try { render(); } catch (e) { showErr(e.message); } });
   $("totExp").addEventListener("input", function () { if (!$("resultsCard").classList.contains("hidden")) render(); });
   $("downloadBtn").addEventListener("click", download);
+  $("draftBtn").addEventListener("click", createDraft);
+  $("setupToggle").addEventListener("click", function (e) {
+    e.preventDefault(); $("setupBox").classList.toggle("hidden");
+  });
 })();

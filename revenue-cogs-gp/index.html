@@ -73,6 +73,42 @@
       <div id="errBox" class="err hidden"></div>
     </section>
 
+    <!-- STEP 2b: email draft settings -->
+    <section class="card">
+      <h2><span class="step-n">✉</span> Gmail draft (optional)</h2>
+      <p class="hint">After the report is built you can click <b>Create Gmail draft</b> to save a
+        <b>draft</b> (never sent) in <b>accounting@gatpsolutions.com</b> with the report attached.
+        This needs a one-time <b>Google OAuth Client ID</b> — see the setup note below.</p>
+      <div class="grid-params">
+        <div class="field">
+          <label for="mailTo">Send to (To)</label>
+          <input type="text" id="mailTo" value="Sara Whyte &lt;Sarah@solislabs.com&gt;" />
+          <div class="sub">Format: <code>Name &lt;email&gt;</code> or just the email.</div>
+        </div>
+        <div class="field">
+          <label for="mailCc">CC</label>
+          <input type="text" id="mailCc" value="Nikhar Mathur &lt;nikhar.m@gatpsolutions.com&gt;" />
+          <div class="sub">Format: <code>Name &lt;email&gt;</code> or just the email.</div>
+        </div>
+        <div class="field">
+          <label for="gClientId">Google OAuth Client ID</label>
+          <input type="text" id="gClientId" placeholder="1234-abc.apps.googleusercontent.com" />
+          <div class="sub">Stored only in this browser. <a href="#" id="setupToggle">How do I get this?</a></div>
+        </div>
+      </div>
+      <div class="assump hidden" id="setupBox">
+        <b>One-time setup (Google Cloud, ~3 min):</b>
+        <ol style="margin:8px 0 0 18px; padding:0;">
+          <li>Go to <b>console.cloud.google.com</b> → APIs &amp; Services → <b>Enable</b> the <b>Gmail API</b>.</li>
+          <li>OAuth consent screen → <b>Internal</b> (your Workspace) → add scope <code>gmail.compose</code>.</li>
+          <li>Credentials → Create <b>OAuth client ID</b> → <b>Web application</b>.</li>
+          <li>Under <b>Authorized JavaScript origins</b> add this page's URL
+            (e.g. <code>https://revenue-cogs-gp-report.vercel.app</code>).</li>
+          <li>Copy the <b>Client ID</b> and paste it above.</li>
+        </ol>
+      </div>
+    </section>
+
     <!-- STEP 3: results -->
     <section class="card hidden" id="resultsCard">
       <h2><span class="step-n">3</span> Your report</h2>
@@ -111,6 +147,12 @@
         <button class="btn btn-ok" id="downloadBtn">⬇️ Download report workbook (.xlsx)</button>
         <span class="badge" id="dlBadge"></span>
       </div>
+      <div class="actions" style="margin-top:14px;">
+        <button class="btn btn-mail" id="draftBtn">✉️ Create Gmail draft (report attached)</button>
+        <span class="badge" id="mailStatus"></span>
+      </div>
+      <div id="mailErr" class="err hidden"></div>
+      <p class="hint" style="margin-top:8px;">Saves a <b>draft</b> in accounting@gatpsolutions.com — nothing is sent. Review and send it yourself from Gmail.</p>
     </section>
 
     <div class="footer">
@@ -122,6 +164,8 @@
   <!-- Vendored libraries (shared with the root tool, no CDN) -->
   <script src="../vendor/xlsx.full.min.js"></script>
   <script src="../vendor/exceljs.min.js"></script>
+  <!-- Google Identity Services — only needed for the optional Gmail-draft feature -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <!-- App logic -->
   <script src="app.js"></script>
 </body>
