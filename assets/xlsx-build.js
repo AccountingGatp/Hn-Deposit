@@ -1,3 +1,4 @@
+/* GATP AP Bills workbook builder */
 /*
  * xlsx-build.js — builds the styled 3-sheet QBO Import workbook with ExcelJS.
  * DOM-free. Takes the ExcelJS constructor as an argument so the same code runs
