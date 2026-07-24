@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Revenue · COGS · Gross Profit Report | GATP</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231F3864'/%3E%3Ctext x='16' y='22' font-family='Arial' font-size='15' font-weight='bold' fill='white' text-anchor='middle'%3EGP%3C/text%3E%3C/svg%3E" />
+  <meta name="description" content="Upload a Revenue (Sales) transaction report and a COGS transaction report to get a 3-tab Profit & Loss report: Revenue, COGS, and Gross/Net Profit with margins. Runs entirely in your browser." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <div class="brand">
+        <div class="logo">GATP</div>
+        <div>
+          <h1>Revenue · COGS · Gross&nbsp;Profit Report</h1>
+          <p>Upload the Sales (Revenue) transaction report and the COGS transaction report → get a clean 3-tab Profit &amp; Loss report with Gross Profit, Net Profit and margins.</p>
+        </div>
+      </div>
+      <div class="privacy">🔒 Files are processed entirely in your browser. Nothing is uploaded to any server.</div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- STEP 1: files -->
+    <section class="card">
+      <h2><span class="step-n">1</span> Upload your two transaction reports</h2>
+      <p class="hint">Both files are standard QuickBooks <b>Transaction Reports</b> (the ones with a <code>Transaction type / Name / Amount</code> layout). The app auto-detects the header row, data rows and the report total.</p>
+      <div class="drops">
+        <label class="drop" id="dropRev">
+          <div class="ico">💰</div>
+          <div class="t">Revenue / Sales report</div>
+          <div class="s">.xls or .xlsx</div>
+          <div class="file" id="revFileName"></div>
+          <input type="file" id="revInput" accept=".xls,.xlsx" />
+        </label>
+        <label class="drop" id="dropCogs">
+          <div class="ico">📦</div>
+          <div class="t">COGS report</div>
+          <div class="s">.xls or .xlsx</div>
+          <div class="file" id="cogsFileName"></div>
+          <input type="file" id="cogsInput" accept=".xls,.xlsx" />
+        </label>
+      </div>
+    </section>
+
+    <!-- STEP 2: parameters -->
+    <section class="card">
+      <h2><span class="step-n">2</span> Add operating expenses (for Net Profit)</h2>
+      <p class="hint">Your two files contain <b>Revenue</b> and <b>COGS</b> only. To show <b>Net Profit</b> and the <b>Net Profit margin</b>, enter the total operating expenses below the gross-profit line (payroll, rent, marketing, admin, etc.). Leave it at <b>0</b> if you only want Gross Profit.</p>
+      <div class="grid-params">
+        <div class="field">
+          <label for="totExp">Total operating expenses</label>
+          <input type="number" id="totExp" value="0" min="0" step="0.01" />
+          <div class="sub">Everything below the gross-profit line. Net Profit = Gross Profit − this.</div>
+        </div>
+        <div class="field">
+          <label for="client">Client / company name</label>
+          <input type="text" id="client" placeholder="auto-filled from the file" />
+          <div class="sub">Used in headings and the output file name.</div>
+        </div>
+        <div class="field">
+          <label for="period">Period</label>
+          <input type="text" id="period" placeholder="auto-filled from the file" />
+          <div class="sub">e.g. May, 2026</div>
+        </div>
+      </div>
+      <div class="actions" style="margin-top:18px;">
+        <button class="btn btn-primary" id="processBtn" disabled>⚙️ Build the report</button>
+        <span class="muted" id="readyHint" style="font-size:13px;">Upload both files to enable.</span>
+      </div>
+      <div id="errBox" class="err hidden"></div>
+    </section>
+
+    <!-- STEP 3: results -->
+    <section class="card hidden" id="resultsCard">
+      <h2><span class="step-n">3</span> Your report</h2>
+
+      <div class="tiles" id="tiles"></div>
+
+      <div class="tabs" id="tabs">
+        <button class="tab active" data-tab="pl">📊 Gross &amp; Net Profit</button>
+        <button class="tab" data-tab="rev">💰 Revenue transactions</button>
+        <button class="tab" data-tab="cogs">📦 COGS transactions</button>
+      </div>
+
+      <!-- TAB: P&L summary -->
+      <div class="tabpane active" id="pane-pl">
+        <h3 class="section-title">Profit &amp; Loss statement <span class="muted" id="plScope"></span></h3>
+        <div class="tablewrap"><table class="data pl" id="plTable"></table></div>
+
+        <h3 class="section-title">Margin analysis (percentages)</h3>
+        <p class="hint">Gross Profit % = Gross&nbsp;Profit ÷ Sales × 100&nbsp;&nbsp;·&nbsp;&nbsp;Net Profit % = Net&nbsp;Profit ÷ Sales × 100</p>
+        <div class="tablewrap"><table class="data pct" id="pctTable"></table></div>
+      </div>
+
+      <!-- TAB: Revenue -->
+      <div class="tabpane" id="pane-rev">
+        <h3 class="section-title">Revenue transactions — <span id="revCount"></span></h3>
+        <div class="tablewrap"><table class="data" id="revTable"></table></div>
+      </div>
+
+      <!-- TAB: COGS -->
+      <div class="tabpane" id="pane-cogs">
+        <h3 class="section-title">COGS transactions — <span id="cogsCount"></span></h3>
+        <div class="tablewrap"><table class="data" id="cogsTable"></table></div>
+      </div>
+
+      <div class="actions" style="margin-top:22px;">
+        <button class="btn btn-ok" id="downloadBtn">⬇️ Download report workbook (.xlsx)</button>
+        <span class="badge" id="dlBadge"></span>
+      </div>
+    </section>
+
+    <div class="footer">
+      GATP Solutions · Revenue · COGS · Gross &amp; Net Profit · Runs offline in your browser ·
+      Output: <code>&lt;Company&gt;_Revenue_COGS_GP_Report.xlsx</code>
+    </div>
+  </main>
+
+  <!-- Vendored libraries (shared with the root tool, no CDN) -->
+  <script src="../vendor/xlsx.full.min.js"></script>
+  <script src="../vendor/exceljs.min.js"></script>
+  <!-- App logic -->
+  <script src="app.js"></script>
+</body>
+</html>
