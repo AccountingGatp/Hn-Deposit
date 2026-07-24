@@ -3,10 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Bank Deposit → QBO Import Sheet | GATP</title>
+  <title>Remote Deposit Check Extractor | GATP</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231F3864'/%3E%3Ctext x='16' y='22' font-family='Arial' font-size='16' font-weight='bold' fill='white' text-anchor='middle'%3E%24%3C/text%3E%3C/svg%3E" />
-  <meta name="description" content="Turn a bank deposits export into a QuickBooks Online import workbook with built-in reconciliation. Runs entirely in your browser." />
+  <meta name="description" content="Read scanned check PDFs and build a remote-deposit import sheet (Date, Description, Amount) with on-page OCR and a review step. Runs entirely in your browser." />
   <link rel="stylesheet" href="assets/styles.css" />
+  <link rel="stylesheet" href="assets/rd-styles.css" />
 </head>
 <body>
   <header class="topbar">
@@ -14,107 +15,83 @@
       <div class="brand">
         <div class="logo">GATP</div>
         <div>
-          <h1>Bank Deposit → QBO Import Sheet</h1>
-          <p>Upload a bank deposits export + your Customers list → get a QuickBooks-ready import workbook with reconciliation.</p>
+          <h1>Remote Deposit Check Extractor</h1>
+          <p>Drop in scanned check PDFs → get a remote-deposit import sheet: <b>Date</b>, <b>Description</b> (check #), <b>Amount</b>.</p>
         </div>
       </div>
-      <div class="privacy">🔒 Files are processed entirely in your browser. Nothing is uploaded to any server.</div>
+      <div class="privacy">🔒 Files are read and OCR'd entirely in your browser. Nothing is uploaded to any server.</div>
     </div>
   </header>
 
   <main class="wrap">
-    <!-- STEP 1: files -->
+    <!-- STEP 1 -->
     <section class="card">
-      <h2><span class="step-n">1</span> Upload your two files</h2>
-      <p class="hint">Bank export must have columns <b>Posted Date</b>, <b>Full description</b>, <b>Amount</b>. Customers list must have a <b>Name</b> column (your QuickBooks customer master).</p>
-      <div class="drops">
-        <label class="drop" id="dropBank">
-          <div class="ico">🏦</div>
-          <div class="t">Bank transactions</div>
-          <div class="s">.csv, .xls or .xlsx</div>
-          <div class="file" id="bankFileName"></div>
-          <input type="file" id="bankInput" accept=".csv,.xls,.xlsx,text/csv" />
-        </label>
-        <label class="drop" id="dropCust">
-          <div class="ico">👥</div>
-          <div class="t">Customers list</div>
-          <div class="s">.xls or .xlsx (QuickBooks export)</div>
-          <div class="file" id="custFileName"></div>
-          <input type="file" id="custInput" accept=".xls,.xlsx" />
-        </label>
-      </div>
+      <h2><span class="step-n">1</span> Upload the check PDFs</h2>
+      <p class="hint">Add one or more scanned check PDFs. Each PDF may contain several checks — every check becomes its own row.</p>
+      <label class="drop" id="dropPdf">
+        <div class="ico">🧾</div>
+        <div class="t">Check PDFs</div>
+        <div class="s">.pdf · select or drop multiple files</div>
+        <div class="file" id="pdfFileName"></div>
+        <input type="file" id="pdfInput" accept="application/pdf,.pdf" multiple />
+      </label>
+      <div id="fileList" class="filelist hidden"></div>
     </section>
 
-    <!-- STEP 2: parameters -->
+    <!-- STEP 2 -->
     <section class="card">
-      <h2><span class="step-n">2</span> Set the import parameters</h2>
-      <p class="hint">These are the same for every row of the import sheet.</p>
-      <div class="grid-params">
-        <div class="field">
-          <label for="startSNo">Starting SNo.</label>
-          <input type="number" id="startSNo" value="1" min="0" step="1" />
-          <div class="sub">First serial number; increments by 1 per row.</div>
-        </div>
-        <div class="field">
-          <label for="accounts">Accounts</label>
-          <input type="text" id="accounts" value="Undeposited Funds" />
-          <div class="sub">e.g. Undeposited Funds</div>
-        </div>
-        <div class="field">
-          <label for="klass">Class</label>
-          <input type="text" id="klass" placeholder="e.g. Corporate" />
-          <div class="sub">Leave blank if you don't use classes.</div>
-        </div>
-        <div class="field">
-          <label for="client">Client / file name prefix</label>
-          <input type="text" id="client" value="Client" />
-          <div class="sub">Used in the output file name.</div>
-        </div>
+      <h2><span class="step-n">2</span> Extract the check details</h2>
+      <p class="hint">The tool renders every page, runs OCR, and pulls the check date, check number, and amount. Backs of checks (no amount) are skipped automatically.</p>
+      <div class="actions">
+        <button class="btn btn-primary" id="processBtn" disabled>⚙️ Extract checks</button>
+        <span class="muted" id="readyHint" style="font-size:13px;">Add at least one PDF to enable.</span>
       </div>
-      <div class="actions" style="margin-top:18px;">
-        <button class="btn btn-primary" id="processBtn" disabled>⚙️ Prepare import sheet</button>
-        <span class="muted" id="readyHint" style="font-size:13px;">Upload both files to enable.</span>
+      <div id="progWrap" class="progwrap hidden">
+        <div class="progbar"><div class="progfill" id="progFill"></div></div>
+        <div class="progtext muted" id="progText"></div>
       </div>
       <div id="errBox" class="err hidden"></div>
     </section>
 
-    <!-- STEP 3: results -->
+    <!-- STEP 3 -->
     <section class="card hidden" id="resultsCard">
       <h2><span class="step-n">3</span> Review &amp; download</h2>
-      <p class="hint">Check the reconciliation, assign any unmatched customers, then download your workbook.</p>
+      <p class="hint">Each row shows the check image so you can confirm the values. Fix anything flagged, then download. Rows in <span style="color:var(--warn);font-weight:700;">amber</span> need a look.</p>
 
       <div class="tiles" id="tiles"></div>
 
-      <div class="assump hidden" id="assumpBox"></div>
+      <div id="reviewBanner" class="assump hidden"></div>
 
-      <h3 class="section-title">Reconciliation</h3>
-      <div class="tablewrap"><table class="data" id="reconTable"></table></div>
+      <div class="reconbox" id="reconBox"></div>
 
-      <h3 class="section-title">QBO Import — <span id="procCount"></span> rows
-        <span class="muted" style="font-weight:400;">(assign any ⚠ rows below)</span></h3>
-      <div class="tablewrap"><table class="data" id="procTable"></table></div>
+      <h3 class="section-title">Extracted checks — <span id="rowCount"></span>
+        <span class="muted" style="font-weight:400;">(click a value to edit)</span></h3>
+      <div class="tablewrap"><table class="data checks" id="checksTable"></table></div>
 
-      <h3 class="section-title">Not Processed — <span id="npCount"></span> rows</h3>
-      <div class="tablewrap"><table class="data" id="npTable"></table></div>
+      <div class="actions" style="margin-top:14px;">
+        <button class="btn btn-ghost" id="addRowBtn">＋ Add a check row</button>
+      </div>
 
       <div class="actions" style="margin-top:22px;">
-        <button class="btn btn-ok" id="downloadBtn">⬇️ Download QBO Import workbook (.xlsx)</button>
+        <button class="btn btn-ok" id="downloadBtn">⬇️ Download Remote Deposit sheet (.xlsx)</button>
+        <button class="btn btn-ghost" id="downloadCsvBtn">⬇️ CSV</button>
         <span class="badge" id="dlBadge"></span>
       </div>
     </section>
 
     <div class="footer">
-      GATP Solutions · Bank Deposit → QBO Import · Runs offline in your browser ·
-      Output: <code>&lt;Client&gt;_QBO_Deposit_Import_&lt;range&gt;.xlsx</code>
+      GATP Solutions · Remote Deposit Check Extractor · Runs offline in your browser ·
+      Output columns: <code>Date · Description · Amount</code> ·
+      <a href="qbo-import.html">Bank Deposit → QBO Import tool →</a>
     </div>
   </main>
 
   <!-- Vendored libraries (no CDN) -->
-  <script src="vendor/xlsx.full.min.js"></script>
+  <script src="vendor/tesseract.min.js"></script>
   <script src="vendor/exceljs.min.js"></script>
   <!-- App logic -->
-  <script src="assets/core.js"></script>
-  <script src="assets/xlsx-build.js"></script>
-  <script src="assets/app.js"></script>
+  <script src="assets/rd-core.js"></script>
+  <script src="assets/rd-xlsx.js"></script>
+  <script type="module" src="assets/rd-app.js"></script>
 </body>
 </html>
