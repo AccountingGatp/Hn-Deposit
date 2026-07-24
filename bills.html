@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AP Vendor Bills → QBO Import | GATP</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231F3864'/%3E%3Ctext x='16' y='22' font-family='Arial' font-size='15' font-weight='bold' fill='white' text-anchor='middle'%3E%E2%82%B1%3C/text%3E%3C/svg%3E" />
+  <meta name="description" content="Turn Cardinal, AmerisourceBergen, CuraScript and McKesson vendor invoices (PDF) into a QuickBooks Online bill-import workbook. Runs entirely in your browser." />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <div class="brand">
+        <div class="logo">GATP</div>
+        <div>
+          <h1>AP Vendor Bills → QBO Import</h1>
+          <p>Drop in vendor invoice PDFs + your GL mapping → get a QuickBooks-ready bill-import workbook with a review summary.</p>
+        </div>
+      </div>
+      <div class="privacy">🔒 Files are processed entirely in your browser. Nothing is uploaded to any server.</div>
+      <nav class="subnav">
+        <a href="index.html">↩ Bank Deposit → QBO Import</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- STEP 1: files -->
+    <section class="card">
+      <h2><span class="step-n">1</span> Upload the invoices and your GL mapping</h2>
+      <p class="hint">Vendor invoices from <b>Cardinal</b>, <b>AmerisourceBergen</b>, <b>CuraScript SD</b> and <b>McKesson</b> are recognised automatically. The GL file maps each <b>Ship-To / Customer number</b> to a Class, Category (expense account), Memo and Vendor.</p>
+      <div class="drops">
+        <label class="drop" id="dropPdf">
+          <div class="ico">📄</div>
+          <div class="t">Vendor invoices</div>
+          <div class="s">One or more <b>.pdf</b> files (multi-select)</div>
+          <div class="file" id="pdfFileName"></div>
+          <input type="file" id="pdfInput" accept="application/pdf,.pdf" multiple />
+        </label>
+        <label class="drop" id="dropGl">
+          <div class="ico">📇</div>
+          <div class="t">GL reference file</div>
+          <div class="s">.xlsx, .xls or .csv (ship-to / customer mapping)</div>
+          <div class="file" id="glFileName"></div>
+          <input type="file" id="glInput" accept=".csv,.xls,.xlsx,text/csv" />
+        </label>
+      </div>
+      <div class="assump" id="glInfo" style="display:none;"></div>
+    </section>
+
+    <!-- STEP 2: parameters -->
+    <section class="card">
+      <h2><span class="step-n">2</span> Set the defaults</h2>
+      <p class="hint">Used only when the GL doesn't supply a value; everything the GL provides always wins.</p>
+      <div class="grid-params">
+        <div class="field">
+          <label for="defAccount">Fallback expense account</label>
+          <input type="text" id="defAccount" placeholder="e.g. Pharmacy - COGS" />
+          <div class="sub">Used when the GL row has no Category. Leave blank to flag for review.</div>
+        </div>
+        <div class="field">
+          <label for="defClass">Fallback class</label>
+          <input type="text" id="defClass" placeholder="e.g. Corporate" />
+          <div class="sub">Used when the GL row has no Class.</div>
+        </div>
+        <div class="field">
+          <label for="client">Client / file name prefix</label>
+          <input type="text" id="client" value="Healthnomics" />
+          <div class="sub">Used in the output file name.</div>
+        </div>
+      </div>
+      <div class="actions" style="margin-top:18px;">
+        <button class="btn btn-primary" id="processBtn" disabled>⚙️ Prepare bill import</button>
+        <span class="muted" id="readyHint" style="font-size:13px;">Upload at least one invoice PDF to enable.</span>
+      </div>
+      <div id="errBox" class="err hidden"></div>
+    </section>
+
+    <!-- STEP 3: results -->
+    <section class="card hidden" id="resultsCard">
+      <h2><span class="step-n">3</span> Review &amp; download</h2>
+      <p class="hint">Check the extraction, fix any ⚠ rows in your source data or GL, then download the workbook and import it to QuickBooks Online.</p>
+
+      <div class="tiles" id="tiles"></div>
+
+      <div class="assump hidden" id="assumpBox"></div>
+
+      <h3 class="section-title">QBO Bill Import — <span id="procCount"></span> bills
+        <span class="muted" style="font-weight:400;">(rows in orange need a fix)</span></h3>
+      <div class="tablewrap"><table class="data" id="procTable"></table></div>
+
+      <h3 class="section-title">Exceptions — <span id="npCount"></span> flagged</h3>
+      <div class="tablewrap"><table class="data" id="npTable"></table></div>
+
+      <div class="actions" style="margin-top:22px;">
+        <button class="btn btn-ok" id="downloadBtn">⬇️ Download QBO Bill Import workbook (.xlsx)</button>
+        <span class="badge" id="dlBadge"></span>
+      </div>
+    </section>
+
+    <div class="footer">
+      GATP Solutions · AP Vendor Bills → QBO Import · Runs offline in your browser ·
+      Output: <code>&lt;Client&gt;_QBO_Bills_Import_&lt;date&gt;.xlsx</code>
+    </div>
+  </main>
+
+  <!-- Vendored libraries (no CDN) -->
+  <script src="vendor/xlsx.full.min.js"></script>
+  <script src="vendor/exceljs.min.js"></script>
+  <!-- pdf.js is an ES module; load it, point it at the local worker, expose globally -->
+  <script type="module">
+    import * as pdfjsLib from './vendor/pdf.min.mjs';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = './vendor/pdf.worker.min.mjs';
+    window.pdfjsLib = pdfjsLib;
+    window.dispatchEvent(new Event('pdfjs-ready'));
+  </script>
+  <!-- App logic -->
+  <script src="assets/bills-core.js"></script>
+  <script src="assets/bills-build.js"></script>
+  <script src="assets/bills-app.js"></script>
+</body>
+</html>
